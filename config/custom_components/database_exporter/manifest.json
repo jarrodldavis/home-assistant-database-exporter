@@ -5,12 +5,9 @@
     "@jarrodldavis"
   ],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": ["recorder"],
   "documentation": "https://www.home-assistant.io/integrations/database_exporter",
-  "homekit": {},
   "iot_class": "local_polling",
   "quality_scale": "bronze",
-  "requirements": [],
-  "ssdp": [],
-  "zeroconf": []
+  "requirements": []
 }

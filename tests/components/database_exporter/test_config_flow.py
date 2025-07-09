@@ -3,14 +3,20 @@
 from unittest.mock import AsyncMock, patch
 
 from homeassistant import config_entries
-from homeassistant.components.database_exporter.config_flow import CannotConnect, InvalidAuth
+from homeassistant.components.database_exporter.config_flow import (
+    CannotConnect,
+    InvalidAuth,
+)
 from homeassistant.components.database_exporter.const import DOMAIN
+from homeassistant.components.recorder import Recorder
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
 
-async def test_form(hass: HomeAssistant, mock_setup_entry: AsyncMock) -> None:
+async def test_form(
+    hass: HomeAssistant, recorder_mock: Recorder, mock_setup_entry: AsyncMock
+) -> None:
     """Test we get the form."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
@@ -43,7 +49,7 @@ async def test_form(hass: HomeAssistant, mock_setup_entry: AsyncMock) -> None:
 
 
 async def test_form_invalid_auth(
-    hass: HomeAssistant, mock_setup_entry: AsyncMock
+    hass: HomeAssistant, recorder_mock: Recorder, mock_setup_entry: AsyncMock
 ) -> None:
     """Test we handle invalid auth."""
     result = await hass.config_entries.flow.async_init(
@@ -94,7 +100,7 @@ async def test_form_invalid_auth(
 
 
 async def test_form_cannot_connect(
-    hass: HomeAssistant, mock_setup_entry: AsyncMock
+    hass: HomeAssistant, recorder_mock: Recorder, mock_setup_entry: AsyncMock
 ) -> None:
     """Test we handle cannot connect error."""
     result = await hass.config_entries.flow.async_init(

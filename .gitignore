@@ -3,3 +3,4 @@ core
 
 *.py[cod]
 __pycache__
+.coverage

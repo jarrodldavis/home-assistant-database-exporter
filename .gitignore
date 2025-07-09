@@ -1,0 +1,5 @@
+.devcontainer
+core
+
+*.py[cod]
+__pycache__

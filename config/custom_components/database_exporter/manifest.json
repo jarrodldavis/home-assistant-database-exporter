@@ -1,0 +1,16 @@
+{
+  "domain": "database_exporter",
+  "name": "Database Exporter",
+  "codeowners": [
+    "@jarrodldavis"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://www.home-assistant.io/integrations/database_exporter",
+  "homekit": {},
+  "iot_class": "local_polling",
+  "quality_scale": "bronze",
+  "requirements": [],
+  "ssdp": [],
+  "zeroconf": []
+}

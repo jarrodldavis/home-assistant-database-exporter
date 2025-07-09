@@ -1,0 +1,35 @@
+diff --git a/.devcontainer/devcontainer.json b/.devcontainer/devcontainer.json
+index 29d5a95ea01..8a392da5f51 100644
+--- a/.devcontainer/devcontainer.json
++++ b/.devcontainer/devcontainer.json
+@@ -1,12 +1,19 @@
+ {
+   "name": "Home Assistant Dev",
+-  "context": "..",
+-  "dockerFile": "../Dockerfile.dev",
++  "context": "../core",
++  "dockerFile": "../core/Dockerfile.dev",
++  "workspaceMount": "source=${localWorkspaceFolder}/core,target=/workspaces/core,type=bind,consistency=cached",
++  "workspaceFolder": "/workspaces/core",
+   "postCreateCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && script/setup",
+   "postStartCommand": "script/bootstrap",
+   "containerEnv": {
+     "PYTHONASYNCIODEBUG": "1"
+   },
++  "mounts": [
++    "source=${localWorkspaceFolder},target=/workspaces/core/config/home-assistant-database-exporter,type=bind",
++    "source=${localWorkspaceFolder}/config/custom_components/database_exporter,target=/workspaces/core/homeassistant/components/database_exporter,type=bind",
++    "source=${localWorkspaceFolder}/tests/components/database_exporter,target=/workspaces/core/tests/components/database_exporter,type=bind"
++  ],
+   "features": {
+     "ghcr.io/devcontainers/features/github-cli:1": {}
+   },
+@@ -32,6 +39,8 @@
+       ],
+       // Please keep this file in sync with settings in home-assistant/.vscode/settings.default.json
+       "settings": {
++        "git.ignoredRepositories": ["/workspaces/core"],
++        "git.scanRepositories": ["config/home-assistant-database-exporter"],
+         "python.experiments.optOutFrom": ["pythonTestAdapter"],
+         "python.defaultInterpreterPath": "/home/vscode/.local/ha-venv/bin/python",
+         "python.pythonPath": "/home/vscode/.local/ha-venv/bin/python",

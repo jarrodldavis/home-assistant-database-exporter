@@ -6,30 +6,31 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
-# TODO List the platforms that you want to support.
-# For your initial PR, limit it to 1 platform.
-_PLATFORMS: list[Platform] = [Platform.LIGHT]
+from .const import CONF_DB_URL
+from .core import DatabaseExportManager
 
-# TODO Create ConfigEntry type alias with API object
-# TODO Rename type alias and update all entry annotations
-type New_NameConfigEntry = ConfigEntry[MyApi]  # noqa: F821
+_PLATFORMS: list[Platform] = []
+
+type DatabaseExporterConfigEntry = ConfigEntry[DatabaseExportManager]
 
 
-# TODO Update entry annotation
-async def async_setup_entry(hass: HomeAssistant, entry: New_NameConfigEntry) -> bool:
+async def async_setup_entry(
+    hass: HomeAssistant, entry: DatabaseExporterConfigEntry
+) -> bool:
     """Set up Database Exporter from a config entry."""
-
-    # TODO 1. Create API instance
-    # TODO 2. Validate the API connection (and authentication)
-    # TODO 3. Store an API object for your platforms to access
-    # entry.runtime_data = MyAPI(...)
-
+    export_manager = DatabaseExportManager(hass, entry.data[CONF_DB_URL])
+    await export_manager.async_setup()
+    entry.runtime_data = export_manager
     await hass.config_entries.async_forward_entry_setups(entry, _PLATFORMS)
-
     return True
 
 
-# TODO Update entry annotation
-async def async_unload_entry(hass: HomeAssistant, entry: New_NameConfigEntry) -> bool:
+async def async_unload_entry(
+    hass: HomeAssistant, entry: DatabaseExporterConfigEntry
+) -> bool:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, _PLATFORMS)
+    if not await hass.config_entries.async_unload_platforms(entry, _PLATFORMS):
+        return False
+
+    await entry.runtime_data.async_teardown()
+    return True

@@ -27,6 +27,8 @@ echo homeassistant/components/database_exporter >> core/.git/info/exclude
 mkdir -pv core/tests/components/database_exporter
 echo tests/components/database_exporter >> core/.git/info/exclude
 
+ln -sv ../../homeassistant/components/database_exporter core/config/custom_components/database_exporter
+
 echo 'homeassistant.components.database_exporter.*' >> core/.strict-typing
 git -C core update-index --assume-unchanged .strict-typing
 

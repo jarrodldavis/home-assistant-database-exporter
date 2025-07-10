@@ -1,12 +1,14 @@
 {
   "domain": "database_exporter",
   "name": "Database Exporter",
+  "version": "2025.7.0",
   "codeowners": [
     "@jarrodldavis"
   ],
   "config_flow": true,
   "dependencies": ["recorder"],
   "documentation": "https://www.home-assistant.io/integrations/database_exporter",
+  "integration_type": "service",
   "iot_class": "local_polling",
   "quality_scale": "bronze",
   "requirements": []

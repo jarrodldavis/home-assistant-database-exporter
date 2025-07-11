@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 
 from .const import CONF_DB_URL, DOMAIN
-from .core import test_connection
+from .core import init_connection
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
     try:
         _LOGGER.debug("Testing connection to database with URL: %s", db_url)
-        await test_connection(hass, db_url)
+        await init_connection(hass, db_url)
     except Exception as e:
         _LOGGER.error("Failed to connect to database: %s", e)
         raise CannotConnect from e

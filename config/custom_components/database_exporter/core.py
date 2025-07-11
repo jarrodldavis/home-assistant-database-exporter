@@ -6,13 +6,16 @@ import logging
 from cronsim import CronSim
 import sqlalchemy
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session, scoped_session, sessionmaker
+from sqlalchemy.orm import scoped_session, sessionmaker
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import CALLBACK_TYPE, async_track_point_in_time
 from homeassistant.util import dt as dt_util
 
+from .db_schema import Base
 from .models import DatabaseExporterError, DatabaseExportManagerError
+
+type Session = scoped_session
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +27,7 @@ class DatabaseExportManager:
         """Initialize the export manager."""
         self.hass = hass
         self.db_url = db_url
-        self.sessmaker: scoped_session | None = None
+        self.session: Session | None = None
         self.cron_event: CronSim | None = None
         self.remove_next_export_event: CALLBACK_TYPE | None = None
         self.next_export: datetime | None = None
@@ -33,30 +36,28 @@ class DatabaseExportManager:
         """Set up the database export manager."""
         db_url = self.db_url
 
-        if self.sessmaker:
+        if self.session:
             _LOGGER.debug("Resetting Database Export Manager with URL: %s", db_url)
             await self.async_teardown()
 
         _LOGGER.debug("Setting up Database Export Manager with URL: %s", db_url)
-
-        self.sessmaker = await self.hass.async_add_executor_job(_create_scope, db_url)
+        self.session = await self.hass.async_add_executor_job(_init_session, db_url)
         self._schedule_next()
 
     async def async_teardown(self) -> None:
         """Tear down the database export manager."""
         _LOGGER.debug("Tearing down Database Export Manager with URL: %s", self.db_url)
-
-        if self.sessmaker:
-            await self.hass.async_add_executor_job(self.sessmaker.remove)
+        if self.session:
+            await self.hass.async_add_executor_job(self.session.remove)
         self._unschedule_next()
 
     async def async_export_data(self) -> None:
         """Export data from the database."""
-        if not self.sessmaker:
+        if not self.session:
             raise DatabaseExportManagerError("Session maker is not initialized")
 
         _LOGGER.info("Exporting data to %s", self.db_url)
-        await self.hass.async_add_executor_job(_export_data, self.sessmaker)
+        await self.hass.async_add_executor_job(_export_data, self.session)
         _LOGGER.info("Finished exporting data to %s", self.db_url)
 
     @callback
@@ -69,7 +70,6 @@ class DatabaseExportManager:
 
         async def _run_export(now: datetime) -> None:
             _LOGGER.debug("Running scheduled export at %s", now)
-
             self.remove_next_export_event = None
             self._schedule_next()
 
@@ -82,7 +82,6 @@ class DatabaseExportManager:
 
         next_time = next(self.cron_event)
         _LOGGER.debug("Scheduling next export at %s", next_time)
-
         self.next_export = next_time
         event = async_track_point_in_time(self.hass, _run_export, next_time)
         self.remove_next_export_event = event
@@ -91,53 +90,55 @@ class DatabaseExportManager:
     def _unschedule_next(self) -> None:
         """Unschedule the next export."""
         self.next_export = None
-
-        if (remove_event := self.remove_next_export_event) is not None:
-            remove_event()
+        if self.remove_next_export_event is not None:
+            self.remove_next_export_event()
             self.remove_next_export_event = None
 
 
-async def test_connection(hass: HomeAssistant, db_url: str) -> bool:
+async def init_connection(hass: HomeAssistant, db_url: str) -> bool:
     """Test the database connection."""
     try:
-        await hass.async_add_executor_job(_create_scope, db_url)
+        await hass.async_add_executor_job(_init_session, db_url)
     except SQLAlchemyError as error:
-        raise DatabaseExportManagerError("Database connection test failed") from error
+        raise DatabaseExportManagerError("Connection init failed") from error
     else:
         return True
 
 
-def _create_scope(db_url: str) -> scoped_session:
-    sess: Session | None = None
-
+def _init_session(db_url: str) -> Session:
+    session: Session | None = None
     try:
+        _LOGGER.debug("Creating session with DB_URL: %s", db_url)
         engine = sqlalchemy.create_engine(db_url)
-        sessmaker = scoped_session(sessionmaker(bind=engine, future=True))
-        sess: Session = sessmaker()
-        sess.execute(sqlalchemy.text("SELECT 1;"))
+
+        _LOGGER.debug("Creating tables for DB_URL: %s", db_url)
+        Base.metadata.create_all(engine)
+
+        _LOGGER.debug("Creating session for DB_URL: %s", db_url)
+        session = scoped_session(sessionmaker(bind=engine, future=True))
+        with session.begin():
+            session.execute(sqlalchemy.text("SELECT 1;"))
     except SQLAlchemyError as error:
         _LOGGER.error("Couldn't connect using %s DB_URL: %s", db_url, error)
-        raise DatabaseExportManagerError("Database setup failed") from error
+        raise DatabaseExportManagerError("Session init failed") from error
     else:
-        return sessmaker
+        return session
     finally:
-        if sess:
-            sess.close()
+        session.remove() if session else None
 
 
-def _export_data(sessmaker: scoped_session) -> None:
-    sess: Session = sessmaker()
+def _export_data(session: Session) -> None:
     try:
-        # TODO: Perform the export logic here
-        pass
+        with session.begin():
+            # TODO: Perform the export logic here
+            pass
     except SQLAlchemyError as error:
-        sess.rollback()
-        raise DatabaseExportManagerError("Database export failed") from error
+        raise DatabaseExportManagerError("Export failed") from error
     finally:
-        sess.close()
+        session.remove()
 
 
 __all__ = [
     "DatabaseExportManager",
-    "test_connection",
+    "init_connection",
 ]

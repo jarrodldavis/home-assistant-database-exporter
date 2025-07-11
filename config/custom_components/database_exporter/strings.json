@@ -17,5 +17,11 @@
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
     }
+  },
+  "services": {
+    "export": {
+      "name": "Run Database Exports",
+      "description": "Run a database export for every configured entry."
+    }
   }
 }

@@ -17,5 +17,11 @@
                 }
             }
         }
+    },
+    "services": {
+        "export": {
+            "description": "Run a database export for every configured entry.",
+            "name": "Run Database Exports"
+        }
     }
 }

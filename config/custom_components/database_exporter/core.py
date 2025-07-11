@@ -55,7 +55,9 @@ class DatabaseExportManager:
         if not self.sessmaker:
             raise DatabaseExportManagerError("Session maker is not initialized")
 
+        _LOGGER.info("Exporting data to %s", self.db_url)
         await self.hass.async_add_executor_job(_export_data, self.sessmaker)
+        _LOGGER.info("Finished exporting data to %s", self.db_url)
 
     @callback
     def _schedule_next(self) -> None:
@@ -126,8 +128,8 @@ def _create_scope(db_url: str) -> scoped_session:
 def _export_data(sessmaker: scoped_session) -> None:
     sess: Session = sessmaker()
     try:
-        _LOGGER.info("Exporting data to %s", sess.get_bind().url)
         # TODO: Perform the export logic here
+        pass
     except SQLAlchemyError as error:
         sess.rollback()
         raise DatabaseExportManagerError("Database export failed") from error

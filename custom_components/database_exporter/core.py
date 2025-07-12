@@ -132,8 +132,7 @@ def _init_session(db_url: str) -> ScopedSession:
                 engine = sqlalchemy.create_engine(
                     url,
                     poolclass=sqlalchemy.pool.NullPool,
-                    connect_args={"timeout": 30, "check_same_thread": False},
-                    isolation_level="IMMEDIATE",
+                    connect_args={"timeout": 30, "isolation_level": "IMMEDIATE"},
                 )
                 sqlalchemy.event.listen(engine, "connect", _set_network_sqlite_pragmas)
 

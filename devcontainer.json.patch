@@ -1,5 +1,5 @@
 diff --git a/.devcontainer/devcontainer.json b/.devcontainer/devcontainer.json
-index 29d5a95ea01..8a392da5f51 100644
+index 29d5a95ea01..ee075006507 100644
 --- a/.devcontainer/devcontainer.json
 +++ b/.devcontainer/devcontainer.json
 @@ -1,12 +1,19 @@
@@ -18,7 +18,7 @@ index 29d5a95ea01..8a392da5f51 100644
    },
 +  "mounts": [
 +    "source=${localWorkspaceFolder},target=/workspaces/core/config/home-assistant-database-exporter,type=bind",
-+    "source=${localWorkspaceFolder}/config/custom_components/database_exporter,target=/workspaces/core/homeassistant/components/database_exporter,type=bind",
++    "source=${localWorkspaceFolder}/custom_components/database_exporter,target=/workspaces/core/homeassistant/components/database_exporter,type=bind",
 +    "source=${localWorkspaceFolder}/tests/components/database_exporter,target=/workspaces/core/tests/components/database_exporter,type=bind"
 +  ],
    "features": {

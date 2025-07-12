@@ -21,6 +21,7 @@ cp -Rv core/.devcontainer .
 git apply --whitespace=fix --reject devcontainer.json.patch
 
 mkdir -pv core/config/home-assistant-database-exporter
+mkdir -pv core/config/custom_components
 
 mkdir -pv core/homeassistant/components/database_exporter
 echo homeassistant/components/database_exporter >> core/.git/info/exclude

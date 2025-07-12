@@ -7,7 +7,6 @@ from typing import Any
 
 from cronsim import CronSim
 import sqlalchemy
-import sqlalchemy.event
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import scoped_session, sessionmaker
 
@@ -123,18 +122,29 @@ def _init_session(db_url: str) -> ScopedSession:
 
     session: ScopedSession | None = None
     try:
-        engine = sqlalchemy.create_engine(db_url)
-        backend = engine.url.get_backend_name()
+        url = sqlalchemy.make_url(db_url)
+        backend = url.get_backend_name()
+        database = url.database or ""
 
-        if backend == "sqlite":
-            database = engine.url.database or ""
-            _LOGGER.debug("Detected SQLite backend with path: %s", database)
-            if database.startswith("/share"):
-                _LOGGER.debug("Using SQLite PRAGMAs for network SQLite file")
+        match (backend, database):
+            case ("sqlite", database) if database.startswith("/share"):
+                _LOGGER.debug("Detected SQLite with network-mounted path: %s", database)
+                engine = sqlalchemy.create_engine(
+                    url,
+                    poolclass=sqlalchemy.pool.NullPool,
+                    connect_args={"timeout": 30, "check_same_thread": False},
+                    isolation_level="IMMEDIATE",
+                )
                 sqlalchemy.event.listen(engine, "connect", _set_network_sqlite_pragmas)
-            else:
-                _LOGGER.debug("Using SQLite PRAGMAs for local SQLite file")
+
+            case ("sqlite", database):
+                _LOGGER.debug("Detected SQLite backend with local path: %s", database)
+                engine = sqlalchemy.create_engine(url)
                 sqlalchemy.event.listen(engine, "connect", _set_local_sqlite_pragmas)
+
+            case _:
+                _LOGGER.debug("Detected other backend: %s", backend)
+                engine = sqlalchemy.create_engine(url)
 
         _LOGGER.debug("Creating tables for URL: %s", db_url)
         Base.metadata.create_all(engine)

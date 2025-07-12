@@ -2,7 +2,8 @@
 
 from datetime import datetime
 import logging
-from sqlite3 import Connection as SQLite3Connection
+from sqlite3 import Connection as SQLiteConnection
+from typing import Any
 
 from cronsim import CronSim
 import sqlalchemy
@@ -118,21 +119,34 @@ async def init_connection(hass: HomeAssistant, db_url: str) -> bool:
 
 
 def _init_session(db_url: str) -> ScopedSession:
+    _LOGGER.debug("Initializing session for URL: %s", db_url)
+
     session: ScopedSession | None = None
     try:
-        _LOGGER.debug("Creating session with DB_URL: %s", db_url)
         engine = sqlalchemy.create_engine(db_url)
-        sqlalchemy.event.listen(engine, "connect", _set_sqlite_pragmas)
+        backend = engine.url.get_backend_name()
 
-        _LOGGER.debug("Creating tables for DB_URL: %s", db_url)
+        if backend == "sqlite":
+            database = engine.url.database or ""
+            _LOGGER.debug("Detected SQLite backend with path: %s", database)
+            if database.startswith("/share"):
+                _LOGGER.debug("Using SQLite PRAGMAs for network SQLite file")
+                sqlalchemy.event.listen(engine, "connect", _set_network_sqlite_pragmas)
+            else:
+                _LOGGER.debug("Using SQLite PRAGMAs for local SQLite file")
+                sqlalchemy.event.listen(engine, "connect", _set_local_sqlite_pragmas)
+
+        _LOGGER.debug("Creating tables for URL: %s", db_url)
         Base.metadata.create_all(engine)
 
-        _LOGGER.debug("Creating session for DB_URL: %s", db_url)
+        _LOGGER.debug("Creating session factory for URL: %s", db_url)
         session = scoped_session(sessionmaker(bind=engine, future=True))
         with session.begin():
             session.execute(sqlalchemy.text("SELECT 1;"))
+
+        _LOGGER.debug("Session initialized successfully for URL: %s", db_url)
     except SQLAlchemyError as error:
-        _LOGGER.error("Couldn't connect using %s DB_URL: %s", db_url, error)
+        _LOGGER.exception("Couldn't initialize session for URL: %s", db_url)
         raise DatabaseExportManagerError("Session init failed") from error
     else:
         return session
@@ -140,14 +154,28 @@ def _init_session(db_url: str) -> ScopedSession:
         session.remove() if session else None
 
 
-def _set_sqlite_pragmas(dbapi_conn, connection_record):
-    if isinstance(dbapi_conn, SQLite3Connection):
-        cur = dbapi_conn.cursor()
-        cur.execute("PRAGMA journal_mode = WAL")
-        cur.execute("PRAGMA cache_size = -16384")
-        cur.execute("PRAGMA synchronous = NORMAL")
-        cur.execute("PRAGMA foreign_keys = ON")
-        cur.close()
+def _set_network_sqlite_pragmas(conn: Any, _):
+    _LOGGER.debug("Setting SQLite PRAGMAs on new connection to network SQLite file")
+    assert isinstance(conn, SQLiteConnection)
+    cur = conn.cursor()
+    cur.execute("PRAGMA journal_mode = DELETE")
+    cur.execute("PRAGMA locking_mode = EXCLUSIVE")
+    cur.execute("PRAGMA busy_timeout = 30000")
+    cur.execute("PRAGMA synchronous = FULL")
+    cur.execute("PRAGMA temp_store = MEMORY")
+    cur.execute("PRAGMA cache_size = -16384")
+    cur.close()
+
+
+def _set_local_sqlite_pragmas(conn: Any, _):
+    _LOGGER.debug("Setting SQLite PRAGMAs on new connection to local SQLite file")
+    assert isinstance(conn, SQLiteConnection)
+    cur = conn.cursor()
+    cur.execute("PRAGMA journal_mode = WAL")
+    cur.execute("PRAGMA cache_size = -16384")
+    cur.execute("PRAGMA synchronous = NORMAL")
+    cur.execute("PRAGMA foreign_keys = ON")
+    cur.close()
 
 
 __all__ = [

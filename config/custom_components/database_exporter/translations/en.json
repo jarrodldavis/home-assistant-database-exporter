@@ -20,7 +20,7 @@
     },
     "services": {
         "export": {
-            "description": "Run a database export for every configured entry.",
+            "description": "Run an export for every configured Database Exporter service.",
             "name": "Run Database Exports"
         }
     }

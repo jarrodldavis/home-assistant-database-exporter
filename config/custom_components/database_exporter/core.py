@@ -2,9 +2,11 @@
 
 from datetime import datetime
 import logging
+from sqlite3 import Connection as SQLite3Connection
 
 from cronsim import CronSim
 import sqlalchemy
+import sqlalchemy.event
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import scoped_session, sessionmaker
 
@@ -13,9 +15,9 @@ from homeassistant.helpers.event import CALLBACK_TYPE, async_track_point_in_time
 from homeassistant.util import dt as dt_util
 
 from .db_schema import Base
+from .exporters import EventExporter, Exporter, StateExporter
 from .models import DatabaseExporterError, DatabaseExportManagerError
-
-type Session = scoped_session
+from .types import ScopedSession
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,7 +29,8 @@ class DatabaseExportManager:
         """Initialize the export manager."""
         self.hass = hass
         self.db_url = db_url
-        self.session: Session | None = None
+        self.session: ScopedSession | None = None
+        self.exporters: list[Exporter] = []
         self.cron_event: CronSim | None = None
         self.remove_next_export_event: CALLBACK_TYPE | None = None
         self.next_export: datetime | None = None
@@ -42,11 +45,16 @@ class DatabaseExportManager:
 
         _LOGGER.debug("Setting up Database Export Manager with URL: %s", db_url)
         self.session = await self.hass.async_add_executor_job(_init_session, db_url)
+        self.exporters = [
+            EventExporter(self.session, self.hass),
+            StateExporter(self.session, self.hass),
+        ]
         self._schedule_next()
 
     async def async_teardown(self) -> None:
         """Tear down the database export manager."""
         _LOGGER.debug("Tearing down Database Export Manager with URL: %s", self.db_url)
+        self.exporters.clear()
         if self.session:
             await self.hass.async_add_executor_job(self.session.remove)
         self._unschedule_next()
@@ -54,10 +62,14 @@ class DatabaseExportManager:
     async def async_export_data(self) -> None:
         """Export data from the database."""
         if not self.session:
-            raise DatabaseExportManagerError("Session maker is not initialized")
+            raise DatabaseExportManagerError("Session is not initialized")
 
         _LOGGER.info("Exporting data to %s", self.db_url)
-        await self.hass.async_add_executor_job(_export_data, self.session)
+        try:
+            for exporter in self.exporters:
+                await exporter.async_export_all()
+        except SQLAlchemyError as error:
+            raise DatabaseExportManagerError("Export failed") from error
         _LOGGER.info("Finished exporting data to %s", self.db_url)
 
     @callback
@@ -105,11 +117,12 @@ async def init_connection(hass: HomeAssistant, db_url: str) -> bool:
         return True
 
 
-def _init_session(db_url: str) -> Session:
-    session: Session | None = None
+def _init_session(db_url: str) -> ScopedSession:
+    session: ScopedSession | None = None
     try:
         _LOGGER.debug("Creating session with DB_URL: %s", db_url)
         engine = sqlalchemy.create_engine(db_url)
+        sqlalchemy.event.listen(engine, "connect", _set_sqlite_pragmas)
 
         _LOGGER.debug("Creating tables for DB_URL: %s", db_url)
         Base.metadata.create_all(engine)
@@ -127,15 +140,14 @@ def _init_session(db_url: str) -> Session:
         session.remove() if session else None
 
 
-def _export_data(session: Session) -> None:
-    try:
-        with session.begin():
-            # TODO: Perform the export logic here
-            pass
-    except SQLAlchemyError as error:
-        raise DatabaseExportManagerError("Export failed") from error
-    finally:
-        session.remove()
+def _set_sqlite_pragmas(dbapi_conn, connection_record):
+    if isinstance(dbapi_conn, SQLite3Connection):
+        cur = dbapi_conn.cursor()
+        cur.execute("PRAGMA journal_mode = WAL")
+        cur.execute("PRAGMA cache_size = -16384")
+        cur.execute("PRAGMA synchronous = NORMAL")
+        cur.execute("PRAGMA foreign_keys = ON")
+        cur.close()
 
 
 __all__ = [

@@ -7,7 +7,13 @@ from typing import TYPE_CHECKING
 
 import voluptuous as vol
 
-from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, callback
+from homeassistant.core import (
+    HomeAssistant,
+    HomeAssistantError,
+    ServiceCall,
+    ServiceResponse,
+    callback,
+)
 
 from .const import DOMAIN, SERVICE_EXPORT
 
@@ -28,7 +34,13 @@ def async_setup_services(hass: HomeAssistant) -> None:
 
         for entry in _get_entries(hass):
             _LOGGER.debug("Running export for entry: %s", entry.entry_id)
-            await entry.runtime_data.async_export_data()
+
+            try:
+                await entry.runtime_data.async_export_data()
+            except Exception as err:
+                _LOGGER.exception("Error exporting data for entry %s:", entry.entry_id)
+                raise HomeAssistantError("Failed to run export") from err
+
         return None
 
     hass.services.async_register(

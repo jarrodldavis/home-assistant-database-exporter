@@ -57,16 +57,16 @@ class ExportedEvents(Base):
     context_user_hex: Mapped[bytes | None] = mapped_column(LargeBinary(16))
     context_parent_ulid: Mapped[bytes | None] = mapped_column(LargeBinary(16))
 
+    # from `EventTypes` model
+    event_type: Mapped[str] = mapped_column(
+        String(MAX_LENGTH_EVENT_EVENT_TYPE), index=True
+    )
+
     # from `EventData` model
     data_id: Mapped[int | None] = mapped_column(
         ID_TYPE, ForeignKey(f"{TABLE_EXPORTED_EVENTS_DATA}.data_id")
     )
     data: Mapped[ExportedEventData | None] = relationship()
-
-    # from `EventTypes` model
-    event_type: Mapped[str] = mapped_column(
-        String(MAX_LENGTH_EVENT_EVENT_TYPE), index=True
-    )
 
 
 class ExportedStateAttributes(Base):
@@ -91,8 +91,8 @@ class ExportedStates(Base):
     # from `States` model
     state_id: Mapped[int] = mapped_column(ID_TYPE, index=True, unique=True)
     state_value: Mapped[str | None] = mapped_column(String(MAX_LENGTH_STATE_STATE))
-    last_changed: Mapped[float]
-    last_reported: Mapped[float]
+    last_changed: Mapped[float | None]
+    last_reported: Mapped[float | None]
     last_updated: Mapped[float] = mapped_column(index=True)
     old_state_id: Mapped[int | None] = mapped_column(
         ForeignKey(f"{TABLE_EXPORTED_STATES}.state_id")

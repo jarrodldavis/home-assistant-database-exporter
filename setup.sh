@@ -33,4 +33,7 @@ ln -sv ../../homeassistant/components/database_exporter core/config/custom_compo
 echo 'homeassistant.components.database_exporter.*' >> core/.strict-typing
 git -C core update-index --assume-unchanged .strict-typing
 
+git -C core apply --whitespace=fix --reject pyproject.toml.patch
+git -C core update-index --assume-unchanged pyproject.toml
+
 printf "$LOG_TEMPLATE" 32 '--> ' 39 'Done!'

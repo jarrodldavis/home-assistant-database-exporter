@@ -4,12 +4,12 @@ import logging
 from typing import override
 
 from sqlalchemy import Insert, Select, select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import selectinload
 
 from homeassistant.components.recorder.db_schema import Events
 
-from ..db_schema import ExportedEventData, ExportedEvents  # noqa: TID252
+from ..db_schema import ExportedEventData, ExportedEvents
+from ..upsert import upsert
 from .base import Exporter
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,7 +45,10 @@ class EventExporter(Exporter[Events], LOGGER=_LOGGER):
 
     def _export_event_data_query(self, events: list[Events]) -> Insert | None:
         to_insert = [
-            {"data_id": data_id, "value": model.to_native()}
+            {
+                ExportedEventData.data_id: data_id,
+                ExportedEventData.value: model.to_native(),
+            }
             for data_id, model in {  # deduplicate data
                 event.data_id: event.event_data_rel
                 for event in events
@@ -57,21 +60,24 @@ class EventExporter(Exporter[Events], LOGGER=_LOGGER):
         if len(to_insert) == 0:
             return None
 
-        stmt = sqlite_insert(ExportedEventData).values(to_insert)
-        updates = {"value": stmt.excluded.value}
-        return stmt.on_conflict_do_update(["data_id"], set_=updates)
+        return (
+            upsert(ExportedEventData)
+            .values(to_insert)
+            .on_conflict(ExportedEventData.data_id)
+            .update(*ExportedEventData.__table__.columns)
+        )
 
     def _export_events_query(self, events: list[Events]) -> Insert | None:
         to_insert = [
             {
-                "event_id": event.event_id,
-                "origin_id": event.origin_idx,
-                "time_fired_ts": event.time_fired_ts,
-                "context_ulid": event.context_id_bin,
-                "context_user_hex": event.context_user_id_bin,
-                "context_parent_ulid": event.context_parent_id_bin,
-                "event_type": event.event_type_rel.event_type,
-                "data_id": event.data_id,
+                ExportedEvents.event_id: event.event_id,
+                ExportedEvents.origin_id: event.origin_idx,
+                ExportedEvents.time_fired_ts: event.time_fired_ts,
+                ExportedEvents.context_ulid: event.context_id_bin,
+                ExportedEvents.context_user_hex: event.context_user_id_bin,
+                ExportedEvents.context_parent_ulid: event.context_parent_id_bin,
+                ExportedEvents.event_type: event.event_type_rel.event_type,
+                ExportedEvents.data_id: event.data_id,
             }
             for event in events
         ]
@@ -79,7 +85,9 @@ class EventExporter(Exporter[Events], LOGGER=_LOGGER):
         if len(to_insert) == 0:
             return None
 
-        stmt = sqlite_insert(ExportedEvents).values(to_insert)
-        cols = ExportedEvents.__table__.columns
-        updates = {c.name: stmt.excluded[c.key] for c in cols if not c.primary_key}
-        return stmt.on_conflict_do_update(["event_id"], set_=updates)
+        return (
+            upsert(ExportedEvents)
+            .values(to_insert)
+            .on_conflict(ExportedEvents.event_id)
+            .update(*ExportedEvents.__table__.columns)
+        )

@@ -1,0 +1,14 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index b4478a69d53..65d0792b8fe 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -904,6 +904,9 @@ split-on-trailing-comma = false
+ "homeassistant/components/*/*/*" = ["TID252"]
+ "tests/components/*/*/*" = ["TID252"]
+ 
++"config/custom_components/*/*/*" = ["TID252"]
++"config/home-assistant-database-exporter/custom_components/*/*/*" = ["TID252"]
++
+ # Temporary
+ "homeassistant/**" = ["PTH"]
+ "tests/**" = ["PTH"]

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 import logging
-from sqlite3 import Connection as SQLiteConnection
+import sqlite3
 from typing import Any
 
 from cronsim import CronSim
@@ -124,38 +124,28 @@ def _init_session(db_url: str) -> ScopedSession:
     try:
         url = sqlalchemy.make_url(db_url)
         backend = url.get_backend_name()
-        database = url.database or ""
 
-        match (backend, database):
-            case ("sqlite", database) if database.startswith("/share"):
-                _LOGGER.debug("Detected SQLite with network-mounted path: %s", database)
-                engine = sqlalchemy.create_engine(
-                    url,
-                    poolclass=sqlalchemy.pool.NullPool,
-                    connect_args={"timeout": 30, "isolation_level": "IMMEDIATE"},
-                )
-                sqlalchemy.event.listen(engine, "connect", _set_network_sqlite_pragmas)
-
-            case ("sqlite", database):
-                _LOGGER.debug("Detected SQLite backend with local path: %s", database)
+        match backend:
+            case "sqlite":
+                _LOGGER.debug("Detected SQLite backend")
                 engine = sqlalchemy.create_engine(url)
-                sqlalchemy.event.listen(engine, "connect", _set_local_sqlite_pragmas)
+                sqlalchemy.event.listen(engine, "connect", _set_sqlite_pragmas)
 
             case _:
                 _LOGGER.debug("Detected other backend: %s", backend)
                 engine = sqlalchemy.create_engine(url)
 
-        _LOGGER.debug("Creating tables for URL: %s", db_url)
+        _LOGGER.debug("Creating tables")
         Base.metadata.create_all(engine)
 
-        _LOGGER.debug("Creating session factory for URL: %s", db_url)
+        _LOGGER.debug("Creating session factory")
         session = scoped_session(sessionmaker(bind=engine, future=True))
         with session.begin():
             session.execute(sqlalchemy.text("SELECT 1;"))
 
-        _LOGGER.debug("Session initialized successfully for URL: %s", db_url)
+        _LOGGER.debug("Session initialized successfully")
     except SQLAlchemyError as error:
-        _LOGGER.exception("Couldn't initialize session for URL: %s", db_url)
+        _LOGGER.exception("Couldn't initialize session")
         raise DatabaseExportManagerError("Session init failed") from error
     else:
         return session
@@ -163,28 +153,16 @@ def _init_session(db_url: str) -> ScopedSession:
         session.remove() if session else None
 
 
-def _set_network_sqlite_pragmas(conn: Any, _):
-    _LOGGER.debug("Setting SQLite PRAGMAs on new connection to network SQLite file")
-    assert isinstance(conn, SQLiteConnection)
-    cur = conn.cursor()
-    cur.execute("PRAGMA journal_mode = DELETE")
-    cur.execute("PRAGMA locking_mode = EXCLUSIVE")
-    cur.execute("PRAGMA busy_timeout = 30000")
-    cur.execute("PRAGMA synchronous = FULL")
-    cur.execute("PRAGMA temp_store = MEMORY")
-    cur.execute("PRAGMA cache_size = -16384")
-    cur.close()
-
-
-def _set_local_sqlite_pragmas(conn: Any, _):
-    _LOGGER.debug("Setting SQLite PRAGMAs on new connection to local SQLite file")
-    assert isinstance(conn, SQLiteConnection)
+def _set_sqlite_pragmas(conn: Any, _):
+    _LOGGER.debug("Setting SQLite PRAGMAs")
+    assert isinstance(conn, sqlite3.Connection)
     cur = conn.cursor()
     cur.execute("PRAGMA journal_mode = WAL")
     cur.execute("PRAGMA cache_size = -16384")
     cur.execute("PRAGMA synchronous = NORMAL")
     cur.execute("PRAGMA foreign_keys = ON")
     cur.close()
+    _LOGGER.debug("Done setting SQLite PRAGMAs")
 
 
 __all__ = [

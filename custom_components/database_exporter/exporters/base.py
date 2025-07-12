@@ -5,12 +5,13 @@ from collections.abc import Sequence
 import logging
 from typing import Generic, TypeVar
 
-from sqlalchemy import Insert, Select
+from sqlalchemy import Insert, ReturnsRows, Select
+from sqlalchemy.orm import Session
 
 from homeassistant.components.recorder import get_instance as get_recorder_instance
 from homeassistant.core import HomeAssistant
 
-from ..types import ScopedSession  # noqa: TID252
+from ..types import ScopedSession
 
 SourceModel = TypeVar("SourceModel")
 
@@ -64,6 +65,7 @@ class Exporter(ABC, Generic[SourceModel]):
     def _get_latest_exported_id(self) -> int | None:
         stmt = self._latest_exported_id_query()
         try:
+            self._log_statement(stmt, self.export_session)
             return self.export_session.scalars(stmt).first()
         finally:
             self.export_session.remove()
@@ -80,6 +82,7 @@ class Exporter(ABC, Generic[SourceModel]):
         stmt = self._recorder_entries_query(start_id, limit)
         session = get_recorder_instance(self.hass).get_session()
         try:
+            self._log_statement(stmt, session)
             results = session.scalars(stmt).all()
         finally:
             session.close()
@@ -96,8 +99,13 @@ class Exporter(ABC, Generic[SourceModel]):
         stmts = [stmt for stmt in stmts if stmt is not None]
         try:
             for stmt in stmts:
-                self._LOGGER.debug("Executing export statement: %s", stmt)
+                self._log_statement(stmt, self.export_session)
                 self.export_session.execute(stmt)
             self.export_session.commit()
         finally:
             self.export_session.remove()
+
+    def _log_statement(self, stmt: ReturnsRows, session: Session) -> None:
+        if self._LOGGER.isEnabledFor(logging.DEBUG):
+            compiled = stmt.compile(dialect=session.bind.dialect)
+            self._LOGGER.debug("Executing statement: %s", compiled)

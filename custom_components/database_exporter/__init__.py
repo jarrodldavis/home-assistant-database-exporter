@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 
-from .const import CONF_DB_URL, DOMAIN, SERVICE_EXPORT
+from .const import CONF_DB_URL
 from .core import DatabaseExportManager
 from .services import async_setup_services
 
@@ -41,8 +41,4 @@ async def async_unload_entry(
     """Teardown a Database Exporter config entry."""
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, _PLATFORMS):
         await entry.runtime_data.async_teardown()
-
-        if not hass.config_entries.async_loaded_entries(DOMAIN):
-            hass.services.async_remove(DOMAIN, SERVICE_EXPORT)
-
     return unload_ok

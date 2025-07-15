@@ -77,8 +77,7 @@ class DatabaseExportManager:
         self._unschedule_next()
 
         if self.cron_event is None:
-            # At 3:12 AM every day
-            self.cron_event = CronSim("12 3 * * *", dt_util.now())
+            self.cron_event = CronSim("23 * * * *", dt_util.now())
 
         async def _run_export(now: datetime) -> None:
             _LOGGER.debug("Running scheduled export at %s", now)

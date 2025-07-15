@@ -38,7 +38,7 @@ class Exporter(ABC, Generic[SourceModel]):
         while await self.async_export_batch():
             batch_count += 1
             self._LOGGER.debug("Exported batch %d successfully", batch_count)
-        self._LOGGER.debug("Exported %d batches successfully", batch_count)
+        self._LOGGER.info("Exported %d batches successfully", batch_count)
 
     async def async_export_batch(self, limit: int = 1000) -> int:
         """Export the next batch of recorder entries."""
@@ -54,7 +54,7 @@ class Exporter(ABC, Generic[SourceModel]):
         self._LOGGER.debug("Found %d new entries", entry_count)
 
         await hass_exec(self._export_entries, entries)
-        self._LOGGER.debug("Exported %d entries successfully", entry_count)
+        self._LOGGER.info("Exported %d entries successfully", entry_count)
 
         return entry_count
 

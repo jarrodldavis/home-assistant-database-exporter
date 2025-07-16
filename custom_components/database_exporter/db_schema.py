@@ -95,7 +95,7 @@ class ExportedStates(Base):
     last_reported: Mapped[float | None]
     last_updated: Mapped[float] = mapped_column(index=True)
     old_state_id: Mapped[int | None] = mapped_column(
-        ForeignKey(f"{TABLE_EXPORTED_STATES}.state_id"), use_alter=True
+        ForeignKey(f"{TABLE_EXPORTED_STATES}.state_id", use_alter=True)
     )
     origin_id: Mapped[int] = mapped_column(SmallInteger())
     context_ulid: Mapped[bytes | None] = mapped_column(LargeBinary(16))

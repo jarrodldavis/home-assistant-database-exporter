@@ -1,21 +1,23 @@
 """Custom Upsert class for handling insert or update operations."""
 
 from collections.abc import Sequence
-from typing import Any, Self, TypeVar
+from typing import Any, Self, TypeVar, Union
 
 from sqlalchemy import Insert
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-from sqlalchemy.engine.interfaces import Compiled
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql._typing import _DMLColumnKeyMapping, _DMLTableArgument
+from sqlalchemy.sql.compiler import Compiled
 from sqlalchemy.sql.expression import ClauseElement, Executable
+from sqlalchemy.sql.roles import DDLConstraintColumnRole
 from sqlalchemy.sql.schema import Column as ColumnObject
 
 InsertT = TypeVar("InsertT", bound="Insert")
 
-type Column = ColumnObject[Any] | str
+type Column = Union[ColumnObject[Any], str, DDLConstraintColumnRole]
+type ValueArg = Union[_DMLColumnKeyMapping[Any], Sequence[Any]]
 
 
 class Upsert(Executable, ClauseElement):
@@ -27,9 +29,9 @@ class Upsert(Executable, ClauseElement):
     def __init__(self, table: _DMLTableArgument) -> None:
         """Initialize the Upsert statement."""
         self.table = table
-        self.values_args: tuple[_DMLColumnKeyMapping[Any] | Sequence[Any], ...] = []
+        self.values_args: list[ValueArg] | tuple[ValueArg, ...] = []
         self.values_kwargs: dict[str, Any] = {}
-        self.conflict_columns: list[Column] = []
+        self.conflict_columns: list[Column] | tuple[Column, ...] = []
         self.update_columns: list[str] = []
 
     def values(
@@ -61,6 +63,8 @@ def upsert(table: _DMLTableArgument) -> Upsert:
 def _extract_column_name(col: Column) -> str:
     if isinstance(col, ColumnObject):
         return col.name
+    if isinstance(col, DDLConstraintColumnRole):
+        raise TypeError("DDLConstraintColumnRole cannot be used directly in upsert().")
     return col
 
 

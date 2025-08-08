@@ -58,14 +58,10 @@ class ExportedEvents(Base):
     context_parent_ulid: Mapped[bytes | None] = mapped_column(LargeBinary(16))
 
     # from `EventTypes` model
-    event_type: Mapped[str] = mapped_column(
-        String(MAX_LENGTH_EVENT_EVENT_TYPE), index=True
-    )
+    event_type: Mapped[str] = mapped_column(String(MAX_LENGTH_EVENT_EVENT_TYPE), index=True)
 
     # from `EventData` model
-    data_id: Mapped[int | None] = mapped_column(
-        ID_TYPE, ForeignKey(f"{TABLE_EXPORTED_EVENTS_DATA}.data_id")
-    )
+    data_id: Mapped[int | None] = mapped_column(ID_TYPE, ForeignKey(f"{TABLE_EXPORTED_EVENTS_DATA}.data_id"))
     data: Mapped[ExportedEventData | None] = relationship()
 
 
@@ -94,18 +90,14 @@ class ExportedStates(Base):
     last_changed: Mapped[float | None]
     last_reported: Mapped[float | None]
     last_updated: Mapped[float] = mapped_column(index=True)
-    old_state_id: Mapped[int | None] = mapped_column(
-        ForeignKey(f"{TABLE_EXPORTED_STATES}.state_id", use_alter=True)
-    )
+    old_state_id: Mapped[int | None] = mapped_column(ForeignKey(f"{TABLE_EXPORTED_STATES}.state_id", use_alter=True))
     origin_id: Mapped[int] = mapped_column(SmallInteger())
     context_ulid: Mapped[bytes | None] = mapped_column(LargeBinary(16))
     context_user_hex: Mapped[bytes | None] = mapped_column(LargeBinary(16))
     context_parent_ulid: Mapped[bytes | None] = mapped_column(LargeBinary(16))
 
     # from `StatesMeta` model
-    entity_id: Mapped[str] = mapped_column(
-        String(MAX_LENGTH_STATE_ENTITY_ID), index=True
-    )
+    entity_id: Mapped[str] = mapped_column(String(MAX_LENGTH_STATE_ENTITY_ID), index=True)
 
     # from `StateAttributes` model
     attributes_id: Mapped[int | None] = mapped_column(
